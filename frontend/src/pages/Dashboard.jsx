@@ -227,14 +227,22 @@ export const Dashboard = ({ setActiveTab }) => {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        d.current_status === 'Disposed'
-                          ? 'bg-emerald-100 text-emerald-800'
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        d.current_status === 'Dispatched'
+                          ? 'bg-purple-100 text-purple-800 border-purple-200'
+                          : d.current_status === 'Disposed'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                           : d.current_status === 'In Progress'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : 'bg-amber-100 text-amber-800 border-amber-200'
                       }`}>
-                        {d.current_status}
+                        {d.current_status === 'Dispatched'
+                          ? 'निर्गमित (Dispatched)'
+                          : d.current_status === 'Disposed'
+                          ? 'निस्तारित'
+                          : d.current_status === 'In Progress'
+                          ? 'प्रक्रियाधीन'
+                          : 'लंबित'}
                       </span>
                     </td>
                   </tr>

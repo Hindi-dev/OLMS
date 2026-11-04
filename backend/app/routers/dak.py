@@ -44,10 +44,10 @@ def get_dak_summary(db: Session = Depends(get_db)):
     total = db.query(func.count(DakRecord.id)).scalar() or 0
     pending = db.query(func.count(DakRecord.id)).filter(DakRecord.current_status == "Pending").scalar() or 0
     in_progress = db.query(func.count(DakRecord.id)).filter(DakRecord.current_status == "In Progress").scalar() or 0
-    disposed = db.query(func.count(DakRecord.id)).filter(DakRecord.current_status == "Disposed").scalar() or 0
+    disposed = db.query(func.count(DakRecord.id)).filter(DakRecord.current_status.in_(["Disposed", "Dispatched"])).scalar() or 0
     urgent = db.query(func.count(DakRecord.id)).filter(
         DakRecord.priority.in_(["Urgent", "Immediate", "Top Priority"]),
-        DakRecord.current_status != "Disposed"
+        ~DakRecord.current_status.in_(["Disposed", "Dispatched"])
     ).scalar() or 0
 
     return {
