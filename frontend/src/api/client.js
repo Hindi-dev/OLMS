@@ -75,5 +75,11 @@ export const api = {
   uploadPolicyDoc: (formData) => fetchApi('/api/policy-docs/upload', { method: 'POST', body: formData }),
   searchPolicyReference: (query, category = '') => fetchApi(`/api/policy-docs/search/ready-reference?query=${encodeURIComponent(query)}${category ? `&category=${encodeURIComponent(category)}` : ''}`),
   getPolicyDocDetail: (id) => fetchApi(`/api/policy-docs/${id}`),
-  deletePolicyDoc: (id) => fetchApi(`/api/policy-docs/${id}`, { method: 'DELETE' })
+  deletePolicyDoc: (id) => fetchApi(`/api/policy-docs/${id}`, { method: 'DELETE' }),
+
+  // Government Email Integration (mail.gov.in)
+  getEmailConfig: () => fetchApi('/api/email/config'),
+  saveEmailConfig: (data) => fetchApi('/api/email/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  testEmailConnection: (data = {}) => fetchApi('/api/email/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  syncEmailDak: () => fetchApi('/api/email/sync', { method: 'POST' })
 };

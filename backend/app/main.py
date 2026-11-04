@@ -16,6 +16,7 @@ from backend.app.routers.translation import router as translation_router
 from backend.app.routers.meetings import router as meetings_router
 from backend.app.routers.compliance import router as compliance_router
 from backend.app.routers.policy_reference import router as policy_docs_router
+from backend.app.routers.email_config import router as email_config_router
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -47,6 +48,7 @@ app.include_router(translation_router)
 app.include_router(meetings_router)
 app.include_router(compliance_router)
 app.include_router(policy_docs_router)
+app.include_router(email_config_router)
 
 @app.get("/api/health")
 def health_check():

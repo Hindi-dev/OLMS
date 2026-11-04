@@ -5,6 +5,7 @@ from backend.app.models.translation import GlossaryTerm, TranslationMemoryUnit
 from backend.app.models.meeting import OlicMeeting, MeetingAgenda, MeetingResolution, ActionTakenReport
 from backend.app.models.compliance import QprSubmission, QprSection33Item
 from backend.app.models.policy_document import PolicyDocument
+from backend.app.models.email_config import GovEmailConfig
 
 __all__ = [
     "DakRecord",
@@ -21,5 +22,6 @@ __all__ = [
     "ActionTakenReport",
     "QprSubmission",
     "QprSection33Item",
-    "PolicyDocument"
+    "PolicyDocument",
+    "GovEmailConfig"
 ]

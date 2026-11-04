@@ -15,7 +15,15 @@ import {
   FileText, 
   X,
   History,
-  Send
+  Send,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  Download,
+  Eye,
+  EyeOff,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 
 export const DakTracker = () => {
@@ -30,7 +38,33 @@ export const DakTracker = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDak, setSelectedDak] = useState(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [emailConfigModalOpen, setEmailConfigModalOpen] = useState(false);
   
+  // Gov Email Integration State
+  const [emailConfig, setEmailConfig] = useState({
+    email_address: '',
+    display_name: '',
+    imap_server: 'imap.mail.gov.in',
+    imap_port: 993,
+    imap_use_ssl: true,
+    smtp_server: 'smtp.mail.gov.in',
+    smtp_port: 465,
+    smtp_use_ssl: true,
+    app_password: '',
+    folder_name: 'INBOX',
+    fetch_filter: 'UNSEEN',
+    fetch_limit: 15,
+    auto_mark_read: false,
+    has_password: false,
+    last_sync_at: null,
+    last_sync_status: ''
+  });
+  const [isSyncingEmail, setIsSyncingEmail] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [syncBanner, setSyncBanner] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+
   // New Dak form
   const [newDak, setNewDak] = useState({
     subject_hi: '',
@@ -72,13 +106,76 @@ export const DakTracker = () => {
     }
   };
 
+  const loadEmailConfig = async () => {
+    try {
+      const data = await api.getEmailConfig();
+      setEmailConfig(prev => ({ ...prev, ...data, app_password: '' }));
+    } catch (err) {
+      console.error("Failed to load email config:", err);
+    }
+  };
+
   useEffect(() => {
     loadDak();
+    loadEmailConfig();
   }, [statusFilter, priorityFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     loadDak();
+  };
+
+  const handleSyncEmail = async () => {
+    setIsSyncingEmail(true);
+    setSyncBanner(null);
+    try {
+      const res = await api.syncEmailDak();
+      if (res.success) {
+        setSyncBanner({ type: 'success', message: res.message });
+        loadDak();
+        loadEmailConfig();
+      } else {
+        setSyncBanner({ type: 'error', message: res.message });
+        if (res.message.includes('कॉन्फ़िगर')) {
+          setEmailConfigModalOpen(true);
+        }
+      }
+    } catch (err) {
+      setSyncBanner({ type: 'error', message: 'ईमेल सिंक करने में त्रुटि: ' + (err.message || err) });
+    } finally {
+      setIsSyncingEmail(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingEmail(true);
+    setTestResult(null);
+    try {
+      const res = await api.testEmailConnection({
+        email_address: emailConfig.email_address,
+        app_password: emailConfig.app_password,
+        imap_server: emailConfig.imap_server,
+        imap_port: emailConfig.imap_port,
+        imap_use_ssl: emailConfig.imap_use_ssl
+      });
+      setTestResult(res);
+    } catch (err) {
+      setTestResult({ success: false, message: 'परीक्षण त्रुटि: ' + (err.message || err), folders: [] });
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  const handleSaveEmailConfig = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.saveEmailConfig(emailConfig);
+      alert(res.message || "सेटिंग्स सफलतापूर्वक सुरक्षित की गईं।");
+      loadEmailConfig();
+      setEmailConfigModalOpen(false);
+    } catch (err) {
+      alert("सेटिंग्स सुरक्षित करने में त्रुटि: " + (err.message || err));
+    }
   };
 
   const handleCreateDak = async (e) => {
@@ -149,14 +246,62 @@ export const DakTracker = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center space-x-1.5 bg-rajbhasha-navy hover:bg-slate-800 text-white font-medium px-4 py-2 rounded-lg text-xs shadow transition shrink-0"
-        >
-          <Plus className="w-4 h-4 text-amber-400" />
-          <span>नया डाक दर्ज करें</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleSyncEmail}
+            disabled={isSyncingEmail}
+            className="flex items-center space-x-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-medium px-3.5 py-2 rounded-lg text-xs shadow-sm transition"
+            title="mail.gov.in से नए परिपत्र व ईमेल सीधे डाक ट्रैकर में आयात करें"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-700 ${isSyncingEmail ? 'animate-spin' : ''}`} />
+            <span>{isSyncingEmail ? 'सिंक हो रहा है...' : 'mail.gov.in सिंक'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTestResult(null);
+              setEmailConfigModalOpen(true);
+            }}
+            className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-medium px-3 py-2 rounded-lg text-xs shadow-sm transition"
+            title="NIC / Kavach ईमेल सेटिंग्स"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-600" />
+            <span>ईमेल सेटिंग्स</span>
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-rajbhasha-navy hover:bg-slate-800 text-white font-medium px-4 py-2 rounded-lg text-xs shadow transition"
+          >
+            <Plus className="w-4 h-4 text-amber-400" />
+            <span>नया डाक दर्ज करें</span>
+          </button>
+        </div>
       </div>
+
+      {/* Sync Banner notification */}
+      {syncBanner && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between text-xs transition shadow-sm ${
+          syncBanner.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
+          <div className="flex items-center space-x-2.5">
+            {syncBanner.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span className="font-medium">{syncBanner.message}</span>
+          </div>
+          <button
+            onClick={() => setSyncBanner(null)}
+            className="text-slate-400 hover:text-slate-600 ml-3"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
@@ -537,8 +682,49 @@ export const DakTracker = () => {
                 </div>
 
                 {selectedDak.summary_notes && (
-                  <div className="pt-2 text-[11px] text-slate-700 bg-white p-2 rounded border border-slate-200">
-                    <span className="font-semibold">विशेष निर्देश:</span> {selectedDak.summary_notes}
+                  <div className="pt-2 text-[11px] text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="font-semibold text-slate-900 block mb-0.5">विशेष निर्देश / सारांश:</span>
+                    <pre className="font-sans whitespace-pre-wrap text-slate-700 text-[11px]">{selectedDak.summary_notes}</pre>
+                  </div>
+                )}
+
+                {/* Attachments Section */}
+                {selectedDak.attachments && selectedDak.attachments.length > 0 && (
+                  <div className="pt-2">
+                    <span className="font-semibold text-slate-800 block mb-1.5 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                      <span>संलग्न दस्तावेज़ (Attachments):</span>
+                    </span>
+                    <div className="space-y-1.5">
+                      {selectedDak.attachments.map((att) => {
+                        const filename = att.stored_filepath.split(/[/\\]/).pop();
+                        return (
+                          <div key={att.id} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 text-xs shadow-sm">
+                            <div className="flex items-center space-x-2 truncate">
+                              <FileText className="w-4 h-4 text-rajbhasha-navy shrink-0" />
+                              <span className="font-medium text-slate-800 truncate" title={att.original_filename}>
+                                {att.original_filename}
+                              </span>
+                              {att.file_size_bytes && (
+                                <span className="text-[10px] text-slate-400 shrink-0">
+                                  ({Math.round(att.file_size_bytes / 1024)} KB)
+                                </span>
+                              )}
+                            </div>
+                            <a
+                              href={`/uploads/${encodeURIComponent(filename)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              className="text-[11px] bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 ml-2 transition border border-blue-200"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>डाउनलोड / देखें</span>
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -693,6 +879,266 @@ export const DakTracker = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Government Email Integration Settings (mail.gov.in) */}
+      {emailConfigModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col text-xs">
+            
+            {/* Header */}
+            <div className="bg-rajbhasha-navy text-white px-5 py-3.5 flex items-center justify-between border-b-2 border-rajbhasha-saffron">
+              <div className="flex items-center space-x-2">
+                <Mail className="w-5 h-5 text-amber-300" />
+                <div>
+                  <h3 className="font-bold text-sm text-white">सरकारी ईमेल एकीकरण सेटिंग्स (mail.gov.in / Kavach 2FA)</h3>
+                  <p className="text-[11px] text-slate-300">NIC / Gov ईमेल इनबॉक्स से आवक डाक व संलग्नकों का सीधा स्थानीय आयात</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setTestResult(null);
+                  setEmailConfigModalOpen(false);
+                }} 
+                className="text-slate-300 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveEmailConfig} className="p-5 space-y-4 overflow-y-auto flex-1">
+              
+              {/* Security Banner */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-900 flex items-start space-x-2.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-bold">100% स्थानीय व सुरक्षित (Air-gapped & Offline Compliance):</span> आपके क्रेडेंशियल्स केवल आपके इस कंप्यूटर के स्थानीय डेटाबेस में सुरक्षित रहते हैं। कोई भी डेटा या पासवर्ड किसी बाहरी क्लाउड सर्वर पर नहीं भेजा जाता।
+                </div>
+              </div>
+
+              {/* Email Address & Display Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    सरकारी ईमेल पता (mail.gov.in / nic.in): *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={emailConfig.email_address}
+                    onChange={(e) => setEmailConfig({...emailConfig, email_address: e.target.value})}
+                    placeholder="उदा. adhikari.name@nic.in या @gov.in"
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rajbhasha-navy focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    अधिकारी / अनुभाग का नाम (Display Name):
+                  </label>
+                  <input
+                    type="text"
+                    value={emailConfig.display_name || ''}
+                    onChange={(e) => setEmailConfig({...emailConfig, display_name: e.target.value})}
+                    placeholder="उदा. राजभाषा अनुभाग / सहायक निदेशक"
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rajbhasha-navy focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Kavach App Password */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">
+                    कवच ऐप पासवर्ड (Kavach App-Specific Password): *
+                  </label>
+                  {emailConfig.has_password && (
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3" /> पासवर्ड सुरक्षित रूप से सहेजा गया है
+                    </span>
+                  )}
+                </div>
+                
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={emailConfig.app_password || ''}
+                    onChange={(e) => setEmailConfig({...emailConfig, app_password: e.target.value})}
+                    placeholder={emailConfig.has_password ? "नया पासवर्ड दर्ज करने के लिए यहाँ टाइप करें (अन्यथा खाली छोड़ें)" : "कवच ऐप-पासवर्ड यहाँ दर्ज करें"}
+                    className="w-full p-2 pr-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rajbhasha-navy focus:outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* Kavach Instruction Tip */}
+                <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] space-y-1">
+                  <div className="font-bold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                    <span>कवच 2FA ऐप पासवर्ड कैसे बनाएं?</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-0.5 text-amber-800 pl-1">
+                    <li>NIC वेबमेल पोर्टल (<a href="https://mail.gov.in" target="_blank" rel="noreferrer" className="underline font-semibold">mail.gov.in</a>) में सामान्य रूप से लॉगिन करें।</li>
+                    <li>ऊपर <strong>Preferences (प्राथमिकताएं)</strong> ➔ <strong>Security (सुरक्षा)</strong> ➔ <strong>App Passwords</strong> पर जाएँ।</li>
+                    <li>एक नया नाम (उदा. <em>OLMS Desktop</em>) देकर <strong>Generate Password</strong> करें और प्राप्त पासवर्ड यहाँ पेस्ट करें।</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Server Host & Port Settings */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wider">
+                  सर्वर प्रोटोकॉल सेटिंग्स (NIC Defaults):
+                </span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">IMAP सर्वर (आवक डाक):</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={emailConfig.imap_server}
+                        onChange={(e) => setEmailConfig({...emailConfig, imap_server: e.target.value})}
+                        className="flex-1 p-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                      <input
+                        type="number"
+                        value={emailConfig.imap_port}
+                        onChange={(e) => setEmailConfig({...emailConfig, imap_port: parseInt(e.target.value) || 993})}
+                        className="w-16 p-1.5 border border-slate-300 rounded text-xs bg-white text-center"
+                        title="पोर्ट (डिफ़ॉल्ट 993 SSL)"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">SMTP सर्वर (जावक प्रेषण):</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={emailConfig.smtp_server}
+                        onChange={(e) => setEmailConfig({...emailConfig, smtp_server: e.target.value})}
+                        className="flex-1 p-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                      <input
+                        type="number"
+                        value={emailConfig.smtp_port}
+                        onChange={(e) => setEmailConfig({...emailConfig, smtp_port: parseInt(e.target.value) || 465})}
+                        className="w-16 p-1.5 border border-slate-300 rounded text-xs bg-white text-center"
+                        title="पोर्ट (डिफ़ॉल्ट 465 SSL)"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">मेलबॉक्स फ़ोल्डर:</label>
+                    <input
+                      type="text"
+                      value={emailConfig.folder_name}
+                      onChange={(e) => setEmailConfig({...emailConfig, folder_name: e.target.value})}
+                      placeholder="INBOX"
+                      className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">सिंक फ़िल्टर:</label>
+                    <select
+                      value={emailConfig.fetch_filter}
+                      onChange={(e) => setEmailConfig({...emailConfig, fetch_filter: e.target.value})}
+                      className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white"
+                    >
+                      <option value="UNSEEN">केवल अपठित (UNSEEN Mails)</option>
+                      <option value="ALL">हालिया सभी (All Recent Mails)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">अधिकतम संख्या (Limit):</label>
+                    <select
+                      value={emailConfig.fetch_limit}
+                      onChange={(e) => setEmailConfig({...emailConfig, fetch_limit: parseInt(e.target.value) || 15})}
+                      className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white"
+                    >
+                      <option value="10">10 ईमेल</option>
+                      <option value="15">15 ईमेल</option>
+                      <option value="25">25 ईमेल</option>
+                      <option value="30">30 ईमेल</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Connection Button & Result */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">
+                    {emailConfig.last_sync_at ? `अंतिम स्थिति: ${emailConfig.last_sync_status || 'सफल'}` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={isTestingEmail || (!emailConfig.email_address)}
+                    className="flex items-center space-x-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-1.5 rounded-lg border border-slate-300 transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isTestingEmail ? 'animate-spin' : ''}`} />
+                    <span>{isTestingEmail ? 'जांच हो रही है...' : 'कनेक्शन जांचें (Test Connection)'}</span>
+                  </button>
+                </div>
+
+                {testResult && (
+                  <div className={`p-3 rounded-lg border text-xs ${
+                    testResult.success
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      : 'bg-rose-50 border-rose-300 text-rose-900'
+                  }`}>
+                    <div className="flex items-center space-x-2 font-semibold">
+                      {testResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
+                      <span>{testResult.message}</span>
+                    </div>
+                    {testResult.folders && testResult.folders.length > 0 && (
+                      <div className="mt-2 text-[11px] text-slate-600">
+                        <span className="font-semibold text-slate-700">उपलब्ध मेलबॉक्स फ़ोल्डर: </span>
+                        {testResult.folders.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Form Actions */}
+              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestResult(null);
+                    setEmailConfigModalOpen(false);
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rajbhasha-navy text-white rounded-lg hover:bg-slate-800 font-semibold flex items-center gap-1.5 shadow"
+                >
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>सेटिंग्स सुरक्षित करें (Save)</span>
+                </button>
+              </div>
+
+            </form>
+
           </div>
         </div>
       )}
