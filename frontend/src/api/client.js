@@ -36,6 +36,7 @@ export const api = {
   createDak: (data) => fetchApi('/api/dak/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   updateDak: (id, data) => fetchApi(`/api/dak/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   addDakAction: (id, data) => fetchApi(`/api/dak/${id}/actions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  importEmlDak: (formData) => fetchApi('/api/dak/import-eml', { method: 'POST', body: formData }),
 
   // Training Roster
   getCourses: () => fetchApi('/api/training/courses'),

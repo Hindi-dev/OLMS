@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
 import { 
@@ -20,6 +20,7 @@ import {
   Settings,
   ShieldCheck,
   Download,
+  DownloadCloud,
   Eye,
   EyeOff,
   Check,
@@ -64,6 +65,8 @@ export const DakTracker = () => {
   const [testResult, setTestResult] = useState(null);
   const [syncBanner, setSyncBanner] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const emlInputRef = useRef(null);
+  const [isImportingEml, setIsImportingEml] = useState(false);
 
   // New Dak form
   const [newDak, setNewDak] = useState({
@@ -144,6 +147,27 @@ export const DakTracker = () => {
       setSyncBanner({ type: 'error', message: 'ईमेल सिंक करने में त्रुटि: ' + (err.message || err) });
     } finally {
       setIsSyncingEmail(false);
+    }
+  };
+
+  const handleEmlUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImportingEml(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.importEmlDak(formData);
+      setSyncBanner({
+        type: 'success',
+        message: `सफलतापूर्वक ईमेल आयात किया गया: '${res.subject_hi}' (डाक क्रमांक: ${res.dak_unique_no}, संलग्नक: ${res.attachments?.length || 0})`
+      });
+      loadDak();
+    } catch (err) {
+      setSyncBanner({ type: 'error', message: 'ईमेल फ़ाइल (.eml) आयात करने में त्रुटि: ' + err.message });
+    } finally {
+      setIsImportingEml(false);
+      if (emlInputRef.current) emlInputRef.current.value = '';
     }
   };
 
@@ -247,6 +271,24 @@ export const DakTracker = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <input
+            type="file"
+            ref={emlInputRef}
+            onChange={handleEmlUpload}
+            accept=".eml,.msg,.txt"
+            className="hidden"
+          />
+
+          <button
+            onClick={() => emlInputRef.current?.click()}
+            disabled={isImportingEml}
+            className="flex items-center space-x-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-medium px-3.5 py-2 rounded-lg text-xs shadow-sm transition"
+            title="NIC वेबमेल से सेव की गई .eml फ़ाइल सीधे डाक में आयात करें (Zero-VPN & 100% Reliable)"
+          >
+            <DownloadCloud className={`w-3.5 h-3.5 text-amber-700 ${isImportingEml ? 'animate-spin' : ''}`} />
+            <span>{isImportingEml ? 'आयात हो रहा है...' : '.eml ईमेल फ़ाइल आयात'}</span>
+          </button>
+
           <button
             onClick={handleSyncEmail}
             disabled={isSyncingEmail}
@@ -1102,9 +1144,9 @@ export const DakTracker = () => {
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                       : 'bg-rose-50 border-rose-300 text-rose-900'
                   }`}>
-                    <div className="flex items-center space-x-2 font-semibold">
-                      {testResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
-                      <span>{testResult.message}</span>
+                    <div className="flex items-start space-x-2.5 font-medium">
+                      {testResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />}
+                      <span className="whitespace-pre-line leading-relaxed text-[11px]">{testResult.message}</span>
                     </div>
                     {testResult.folders && testResult.folders.length > 0 && (
                       <div className="mt-2 text-[11px] text-slate-600">

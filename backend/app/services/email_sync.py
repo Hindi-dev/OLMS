@@ -91,19 +91,47 @@ class GovEmailService:
         imap_port: int = 993, 
         use_ssl: bool = True
     ) -> Tuple[bool, str, List[str]]:
-        """Tests IMAP connection to mail.gov.in and lists mail folders."""
-        if not email_address or not app_password:
-            return False, "ईमेल पता और कवच ऐप पासवर्ड (App Password) आवश्यक हैं।", []
+        """Tests IMAP connection to mail.gov.in with detailed step-by-step diagnostics."""
+        if not email_address or not email_address.strip():
+            return False, "कृपया अपना सरकारी ईमेल पता (उदा. @nic.in या @gov.in) दर्ज करें।", []
+        if not app_password or not app_password.strip():
+            return False, "कृपया कवच ऐप पासवर्ड (Kavach App-Specific Password) दर्ज करें।", []
         
+        server_clean = imap_server.strip()
+        port_clean = int(imap_port)
+
+        # 1. DNS Resolution Check
+        try:
+            ip = socket.gethostbyname(server_clean)
+        except Exception:
+            return False, f"डीएनएस (DNS) त्रुटि: सर्वर पता '{server_clean}' इंटरनेट पर नहीं मिल सका। कृपया सर्वर नाम या इंटरनेट कनेक्शन जांचें।", []
+
+        # 2. Port Reachability Check (3.5s timeout)
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_sock.settimeout(3.5)
+        try:
+            test_sock.connect((ip, port_clean))
+            test_sock.close()
+        except (socket.timeout, socket.error):
+            return False, (
+                f"पोर्ट {port_clean} पर सर्वर ({server_clean}) से संपर्क नहीं हो सका (Connection Timed Out)।\n\n"
+                f"📌 महत्वपूर्ण सुरक्षा कारण (NIC Cyber Security Policy):\n"
+                f"भारत सरकार (NIC) की आधिकारिक सुरक्षा नीति के अनुसार, mail.gov.in का IMAP (पोर्ट 993) केवल सरकारी कार्यालयीन नेटवर्क (NICNET / LAN) अथवा NIC VPN (कवच) कनेक्ट होने पर ही एक्सेस होता है। सामान्य होम इंटरनेट/मोबाइल नेटवर्क पर NIC फ़ायरवॉल पोर्ट 993 को ब्लॉक रखता है।\n\n"
+                f"💡 समाधान:\n"
+                f"1. यदि संभव हो तो NIC VPN ऑन करके पुनः प्रयास करें।\n"
+                f"2. अथवा आप बिना VPN के भी NIC वेबमेल से किसी भी ईमेल को '.eml फ़ाइल' के रूप में सेव करके सीधे डाक ट्रैकर में ड्रैग-एंड-ड्रॉप कर सकते हैं।"
+            ), []
+
+        # 3. IMAP SSL Handshake & Login
         mail = None
         old_timeout = socket.getdefaulttimeout()
         try:
-            socket.setdefaulttimeout(15.0)
+            socket.setdefaulttimeout(8.0)
             ssl_context = ssl.create_default_context()
             if use_ssl:
-                mail = imaplib.IMAP4_SSL(host=imap_server, port=imap_port, ssl_context=ssl_context, timeout=15.0)
+                mail = imaplib.IMAP4_SSL(host=server_clean, port=port_clean, ssl_context=ssl_context, timeout=8.0)
             else:
-                mail = imaplib.IMAP4(host=imap_server, port=imap_port, timeout=15.0)
+                mail = imaplib.IMAP4(host=server_clean, port=port_clean, timeout=8.0)
             
             mail.login(email_address.strip(), app_password.strip())
             typ, folder_data = mail.list()
@@ -113,7 +141,6 @@ class GovEmailService:
                 for f in folder_data:
                     if f and isinstance(f, bytes):
                         decoded_f = f.decode("utf-8", errors="ignore")
-                        # Extract folder name in quotes or end of line
                         match = re.search(r'"([^"]+)"$', decoded_f) or re.search(r'([^\s]+)$', decoded_f)
                         if match:
                             folder_name = match.group(1).replace('"', '').strip()
@@ -124,15 +151,15 @@ class GovEmailService:
                 folders.insert(0, "INBOX")
                 
             mail.logout()
-            return True, f"सफल! '{email_address}' से mail.gov.in सर्वर सफलतापूर्वक कनेक्ट हो गया।", folders
+            return True, f"सफल! '{email_address}' से mail.gov.in सर्वर सफलतापूर्वक कनेक्ट हो गया है।", folders
 
         except imaplib.IMAP4.error as e:
             err_msg = str(e)
             if "AUTHENTICATIONFAILED" in err_msg.upper() or "LOGIN" in err_msg.upper():
-                return False, "प्रमाणीकरण विफल! कृपया कवच ऐप पासवर्ड (Kavach App Password) जांचें। सामान्य वेबमेल पासवर्ड के बजाय ऐप-पासवर्ड का उपयोग करें।", []
-            return False, f"IMAP त्रुटि: {err_msg}", []
+                return False, "प्रमाणीकरण विफल (Authentication Failed): उपयोगकर्ता नाम अथवा कवच ऐप पासवर्ड (App Password) अमान्य है। कृपया सुनिश्चित करें कि आप सामान्य वेबमेल पासवर्ड के बजाय Kavach Webmail ➔ Preferences ➔ Security ➔ App Passwords से जनरेट किया गया ऐप-पासवर्ड दर्ज कर रहे हैं।", []
+            return False, f"IMAP सर्वर त्रुटि: {err_msg}", []
         except socket.timeout:
-            return False, "कनेक्शन समय समाप्त (Timeout)! कृपया इंटरनेट या NIC इंट्रानेट/VPN कनेक्टिविटी जांचें।", []
+            return False, "कनेक्शन समय समाप्त (Socket Timeout)। कृपया इंटरनेट या VPN कनेक्टिविटी जांचें।", []
         except Exception as e:
             return False, f"सर्वर से कनेक्ट करने में त्रुटि: {str(e)}", []
         finally:
