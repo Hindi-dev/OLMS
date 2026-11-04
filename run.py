@@ -27,7 +27,7 @@ def main():
     print(f"      Open your browser and navigate to: http://localhost:{port}")
     print("=" * 70)
     
-    uvicorn.run("backend.app.main:app", host=host, port=port, reload=False)
+    uvicorn.run("backend.app.main:app", host=host, port=port, reload=True)
 
 if __name__ == "__main__":
     main()

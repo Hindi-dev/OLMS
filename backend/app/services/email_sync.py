@@ -96,12 +96,14 @@ class GovEmailService:
             return False, "ईमेल पता और कवच ऐप पासवर्ड (App Password) आवश्यक हैं।", []
         
         mail = None
+        old_timeout = socket.getdefaulttimeout()
         try:
+            socket.setdefaulttimeout(15.0)
             ssl_context = ssl.create_default_context()
             if use_ssl:
-                mail = imaplib.IMAP4_SSL(host=imap_server, port=imap_port, ssl_context=ssl_context)
+                mail = imaplib.IMAP4_SSL(host=imap_server, port=imap_port, ssl_context=ssl_context, timeout=15.0)
             else:
-                mail = imaplib.IMAP4(host=imap_server, port=imap_port)
+                mail = imaplib.IMAP4(host=imap_server, port=imap_port, timeout=15.0)
             
             mail.login(email_address.strip(), app_password.strip())
             typ, folder_data = mail.list()
@@ -134,6 +136,7 @@ class GovEmailService:
         except Exception as e:
             return False, f"सर्वर से कनेक्ट करने में त्रुटि: {str(e)}", []
         finally:
+            socket.setdefaulttimeout(old_timeout)
             try:
                 if mail:
                     mail.logout()
@@ -356,6 +359,7 @@ class GovEmailService:
                 "items": synced_items
             }
         finally:
+            socket.setdefaulttimeout(old_timeout)
             try:
                 if mail:
                     mail.logout()

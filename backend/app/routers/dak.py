@@ -10,6 +10,11 @@ from backend.app.schemas.dak import (
     DakActionCreate, DakActionResponse, DakAttachmentResponse
 )
 from backend.app.config import UPLOAD_DIR
+from backend.app.services.email_sync import (
+    decode_mime_header, sanitize_filename, infer_department_from_email, get_next_dak_number
+)
+import email
+from email.utils import parseaddr, parsedate_to_datetime
 import shutil
 
 router = APIRouter(prefix="/api/dak", tags=["Inward Dak & Task Tracker"])

@@ -97,27 +97,29 @@ def seed_database():
         c_prabodh = db.query(TrainingCourse).filter(TrainingCourse.course_code == "PRABODH").first()
         c_typing = db.query(TrainingCourse).filter(TrainingCourse.course_code == "TYPING").first()
 
-        nominations = [
-            TrainingNomination(
-                employee_id=emp4.id,
-                course_id=c_prabodh.id,
-                status="Under Training",
-                batch_number="CHTI/2026/BATCH-1",
-                training_center="केंद्रीय हिंदी प्रशिक्षण संस्थान (CHTI) नई दिल्ली",
-                nomination_date=date(2026, 1, 10),
-                start_date=date(2026, 1, 15)
-            ),
-            TrainingNomination(
-                employee_id=emp5.id,
-                course_id=c_typing.id,
-                status="Nominated",
-                batch_number="TYP/2026/Q1",
-                training_center="विभागीय कंप्यूटर प्रशिक्षण केंद्र",
-                nomination_date=date(2026, 2, 1)
-            )
-        ]
-        db.add_all(nominations)
-        db.commit()
+        if emp4 and emp5 and c_prabodh and c_typing:
+            nominations = [
+                TrainingNomination(
+                    employee_id=emp4.id,
+                    course_id=c_prabodh.id,
+                    status="Under Training",
+                    batch_number="CHTI/2026/BATCH-1",
+                    training_center="केंद्रीय हिंदी प्रशिक्षण संस्थान (CHTI) नई दिल्ली",
+                    nomination_date=date(2026, 1, 10),
+                    start_date=date(2026, 1, 15)
+                ),
+                TrainingNomination(
+                    employee_id=emp5.id,
+                    course_id=c_typing.id,
+                    status="Nominated",
+                    batch_number="TYP/2026/Q1",
+                    training_center="विभागीय कंप्यूटर प्रशिक्षण केंद्र",
+                    nomination_date=date(2026, 2, 1)
+                )
+            ]
+            db.add_all(nominations)
+            db.commit()
+            print("Nominations seeded.")
         print("Nominations seeded.")
 
     # 4. Seed Dak Records
