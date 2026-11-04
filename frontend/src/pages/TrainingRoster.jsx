@@ -16,7 +16,8 @@ import {
   FileSpreadsheet,
   Download,
   Upload,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 export const TrainingRoster = () => {
@@ -42,6 +43,7 @@ export const TrainingRoster = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
   const [bulkError, setBulkError] = useState(null);
+  const [clearExisting, setClearExisting] = useState(false);
 
   // Form states
   const [empForm, setEmpForm] = useState({
@@ -169,6 +171,7 @@ export const TrainingRoster = () => {
 
     const formData = new FormData();
     formData.append('file', bulkFile);
+    formData.append('clear_existing', clearExisting ? 'true' : 'false');
 
     try {
       const res = await api.bulkImportEmployees(formData);
@@ -178,6 +181,19 @@ export const TrainingRoster = () => {
       setBulkError(err.message || "इम्पोर्ट में त्रुटि उत्पन्न हुई");
     } finally {
       setBulkLoading(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm("चेतावनी: क्या आप वाकई पूरे रोस्टर डेटा (सभी कर्मचारियों और उनके नामांकनों) को पूरी तरह साफ़ करना चाहते हैं? यह क्रिया वापस नहीं की जा सकती।")) {
+      return;
+    }
+    try {
+      const res = await api.clearRosterData();
+      alert(res.message);
+      loadData();
+    } catch (err) {
+      alert("डेटा साफ़ करने में त्रुटि: " + err.message);
     }
   };
 
@@ -198,10 +214,20 @@ export const TrainingRoster = () => {
 
         <div className="flex items-center space-x-2 shrink-0">
           <button
+            onClick={handleClearAll}
+            className="flex items-center space-x-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-medium px-3 py-2 rounded-lg text-xs shadow-sm transition"
+            title="मौजूदा सभी कर्मचारियों और नामांकनों का डेटा पूरी तरह साफ़ करें"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span>रोस्टर साफ़ करें</span>
+          </button>
+
+          <button
             onClick={() => {
               setBulkFile(null);
               setBulkResult(null);
               setBulkError(null);
+              setClearExisting(false);
               setIsBulkModalOpen(true);
             }}
             className="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-3.5 py-2 rounded-lg text-xs shadow transition"
@@ -688,6 +714,23 @@ export const TrainingRoster = () => {
                     }}
                     className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-rajbhasha-navy file:text-white hover:file:bg-slate-800 cursor-pointer"
                   />
+                </div>
+
+                <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                  <label className="flex items-start space-x-2 cursor-pointer text-amber-950 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={clearExisting}
+                      onChange={(e) => setClearExisting(e.target.checked)}
+                      className="mt-0.5 rounded border-amber-300 text-rajbhasha-navy focus:ring-amber-500"
+                    />
+                    <span>
+                      <strong>मौजूदा सभी पुराने कर्मचारियों का डेटा हटाकर फ्रेश फाइल लोड करें</strong>
+                      <span className="block text-[11px] text-amber-800 font-normal">
+                        (टिक करने पर पहले का रोस्टर पूरी तरह मिट जाएगा और केवल इस फाइल का डेटा रहेगा)
+                      </span>
+                    </span>
+                  </label>
                 </div>
 
                 {bulkError && (

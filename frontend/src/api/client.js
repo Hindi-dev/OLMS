@@ -46,6 +46,7 @@ export const api = {
   updateNomination: (id, data) => fetchApi(`/api/training/nominations/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   getRosterSummary: () => fetchApi('/api/training/roster-summary'),
   bulkImportEmployees: (formData) => fetchApi('/api/training/employees/bulk-import', { method: 'POST', body: formData }),
+  clearRosterData: () => fetchApi('/api/training/employees/clear-all', { method: 'DELETE' }),
 
   // Translation & Reference
   getGlossary: (params = '') => fetchApi(`/api/translation/glossary${params}`),

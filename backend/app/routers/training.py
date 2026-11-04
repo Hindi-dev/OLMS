@@ -1,7 +1,7 @@
 from typing import List, Optional
 from pathlib import Path
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -31,12 +31,32 @@ def download_employee_template():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+@router.delete("/employees/clear-all")
+def clear_all_roster_data(db: Session = Depends(get_db)):
+    db.query(TrainingNomination).delete()
+    deleted_count = db.query(Employee).delete()
+    db.commit()
+    return {
+        "success": True,
+        "message": f"सफलतापूर्वक {deleted_count} कर्मचारियों एवं सभी नामांकनों का डेटा साफ़ कर दिया गया है।",
+        "deleted_count": deleted_count
+    }
+
 @router.post("/employees/bulk-import")
-async def bulk_import_employees(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def bulk_import_employees(
+    file: UploadFile = File(...),
+    clear_existing: bool = Form(False),
+    db: Session = Depends(get_db)
+):
     ext = Path(file.filename).suffix.lower()
     if ext not in ('.xlsx', '.xls', '.csv'):
         raise HTTPException(status_code=400, detail="Only Excel (.xlsx) or CSV (.csv) files are supported.")
     
+    if clear_existing:
+        db.query(TrainingNomination).delete()
+        db.query(Employee).delete()
+        db.commit()
+
     temp_path = UPLOAD_DIR / f"temp_import_{file.filename}"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
