@@ -19,6 +19,11 @@ export async function fetchApi(endpoint, options = {}) {
     }
     throw new Error(errorDetail);
   }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('सर्वर से अमान्य प्रारूप (HTML) प्राप्त हुआ।');
+  }
   return response.json();
 }
 
@@ -31,7 +36,12 @@ export const api = {
   convertPdf: (formData) => fetchApi('/api/converter/convert', { method: 'POST', body: formData }),
 
   // Dak Tracker
-  getDak: (params = '') => fetchApi(`/api/dak/${params}`),
+  getDak: (params = '') => {
+    let p = params || '';
+    if (p.startsWith('/')) p = p.slice(1);
+    return fetchApi(`/api/dak/${p}`);
+  },
+  getDakDetail: (id) => fetchApi(`/api/dak/${id}`),
   getDakSummary: () => fetchApi('/api/dak/stats/summary'),
   createDak: (data) => fetchApi('/api/dak/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   updateDak: (id, data) => fetchApi(`/api/dak/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
@@ -72,7 +82,11 @@ export const api = {
   evaluateQpr: (id) => fetchApi(`/api/compliance/qpr/${id}/evaluate`),
 
   // Policy Documents Ready Reference
-  getPolicyDocs: (params = '') => fetchApi(`/api/policy-docs/${params}`),
+  getPolicyDocs: (params = '') => {
+    let p = params || '';
+    if (p.startsWith('/')) p = p.slice(1);
+    return fetchApi(`/api/policy-docs/${p}`);
+  },
   uploadPolicyDoc: (formData) => fetchApi('/api/policy-docs/upload', { method: 'POST', body: formData }),
   searchPolicyReference: (query, category = '') => fetchApi(`/api/policy-docs/search/ready-reference?query=${encodeURIComponent(query)}${category ? `&category=${encodeURIComponent(category)}` : ''}`),
   getPolicyDocDetail: (id) => fetchApi(`/api/policy-docs/${id}`),

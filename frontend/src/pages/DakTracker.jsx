@@ -248,7 +248,7 @@ export const DakTracker = () => {
       });
       loadDak();
       // Reload selected dak
-      const updated = await api.getDak(`/${selectedDak.id}`);
+      const updated = await api.getDakDetail(selectedDak.id);
       setSelectedDak(updated);
     } catch (err) {
       alert("कार्रवाई जोड़ने में त्रुटि: " + err.message);
