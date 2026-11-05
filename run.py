@@ -1,6 +1,9 @@
 import sys
 import os
 
+# Bypass Windows Application Control DLL block on optional SQLAlchemy Cython extensions
+os.environ["DISABLE_SQLALCHEMY_CEXT"] = "1"
+
 # Ensure UTF-8 output on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")

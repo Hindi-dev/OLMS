@@ -1,7 +1,13 @@
 import re
 from pathlib import Path
 from typing import List, Dict, Any
-import fitz # PyMuPDF
+
+try:
+    import fitz # PyMuPDF
+except Exception:
+    fitz = None
+
+import pypdf
 from docx import Document
 
 def extract_policy_document_text(file_path: str | Path) -> Dict[str, Any]:
@@ -14,14 +20,27 @@ def extract_policy_document_text(file_path: str | Path) -> Dict[str, Any]:
     pages = []
     
     if ext == ".pdf":
-        doc = fitz.open(str(file_path))
-        for page_idx in range(len(doc)):
-            page_text = doc[page_idx].get_text("text") or ""
-            pages.append({
-                "page_number": page_idx + 1,
-                "text": page_text.strip()
-            })
-        doc.close()
+        if fitz:
+            try:
+                doc = fitz.open(str(file_path))
+                for page_idx in range(len(doc)):
+                    page_text = doc[page_idx].get_text("text") or ""
+                    pages.append({
+                        "page_number": page_idx + 1,
+                        "text": page_text.strip()
+                    })
+                doc.close()
+            except Exception:
+                pages = []
+                
+        if not pages:
+            reader = pypdf.PdfReader(str(file_path))
+            for page_idx, page in enumerate(reader.pages):
+                page_text = page.extract_text() or ""
+                pages.append({
+                    "page_number": page_idx + 1,
+                    "text": page_text.strip()
+                })
     elif ext in (".docx", ".doc"):
         doc = Document(str(file_path))
         full_text = []
